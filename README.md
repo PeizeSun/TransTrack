@@ -57,7 +57,8 @@ cp -r /path_to_mot_dataset/train mot/train
 cp -r /path_to_mot_dataset/test mot/test
 python track_tools/convert_mot_to_coco.py
 ```
-Crowdhuman dataset is available in [CrowdHuman](https://www.crowdhuman.org/). We provide annotations of [json format](https://drive.google.com/drive/folders/1DjPL8xWoXDASrxgsA3O06EspJRdUXFQ-?usp=sharing).
+CrowdHuman dataset is available in [CrowdHuman](https://www.crowdhuman.org/). We provide annotations of [json format](https://drive.google.com/drive/folders/1DjPL8xWoXDASrxgsA3O06EspJRdUXFQ-?usp=sharing).
+
 MOT dataset is available in [MOT](https://motchallenge.net/).
 
 3. Pre-train on crowdhuman
