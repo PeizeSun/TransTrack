@@ -5,7 +5,7 @@
 ![](transtrack.png)
 
 ## Introduction
-TransTrack: Multiple-Object Tracking with Transformer(coming soon)
+[TransTrack: Multiple-Object Tracking with Transformer](https://arxiv.org/abs/2012.15460)
 
 
 ## Models
@@ -97,7 +97,7 @@ If you use TransTrack in your research or wish to refer to the baseline results 
 @article{transtrack,
   title   =  {TransTrack: Multiple-Object Tracking with Transformer},
   author  =  {Peize Sun and Yi Jiang and Rufeng Zhang and Enze Xie and Jinkun Cao and Xinting Hu and Tao Kong and Zehuan Yuan and Changhu Wang and Ping Luo},
-  journal =  {arXiv preprint arXiv:},
+  journal =  {arXiv preprint arXiv: 2012.15460},
   year    =  {2020}
 }
 
