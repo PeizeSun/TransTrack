@@ -47,16 +47,18 @@ pip install -r requirements.txt
 
 2. Prepare dataset
 ```
-mkdir crowdhuman
-cp -r /path_to_crowdhuman_dataset/annotations crowdhuman/annotations
+mkdir -p crowdhuman/annotations
+cp -r /path_to_crowdhuman_dataset/annotations/CrowdHuman_val.json crowdhuman/annotations/CrowdHuman_val.json
+cp -r /path_to_crowdhuman_dataset/annotations/CrowdHuman_train.json crowdhuman/annotations/CrowdHuman_train.json
 cp -r /path_to_crowdhuman_dataset/CrowdHuman_train crowdhuman/CrowdHuman_train
 cp -r /path_to_crowdhuman_dataset/CrowdHuman_val crowdhuman/CrowdHuman_val
 mkdir mot
 cp -r /path_to_mot_dataset/train mot/train
 cp -r /path_to_mot_dataset/test mot/test
 python track_tools/convert_mot_to_coco.py
-
 ```
+Crowdhuman dataset is available in [CrowdHuman](https://www.crowdhuman.org/). We provide annotations of [json format](https://drive.google.com/drive/folders/1DjPL8xWoXDASrxgsA3O06EspJRdUXFQ-?usp=sharing).
+MOT dataset is available in [MOT](https://motchallenge.net/).
 
 3. Pre-train on crowdhuman
 ```
