@@ -81,6 +81,11 @@ sh track_exps/mot_val.sh
 sh track_exps/mot_eval.sh
 ```
 
+6. Visualize TransTrack
+```
+python track_tools/txt2video.py
+```
+
 #### Notes
 - Evaluate pre-trained CrowdHuman model on MOT
 ```
