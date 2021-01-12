@@ -4,6 +4,7 @@
 
 ![](transtrack.png)
 
+
 ## Introduction
 [TransTrack: Multiple-Object Tracking with Transformer](https://arxiv.org/abs/2012.15460)
 
@@ -23,6 +24,10 @@ Models are also available in [Baidu Drive](https://pan.baidu.com/s/1dcHuHUZ9y2s7
 - If the resulting MOTA of your self-trained model is not desired, playing around with the --track_thresh sometimes gives a better performance.
 - The training time is on 8 NVIDIA V100 GPUs with batchsize 16.
 - We use the models pre-trained on imagenet.
+
+
+## Demo
+<img src="assets/MOT17-11.gif" width="400"/>  <img src="assets/MOT17-04.gif" width="400"/>
 
 
 ## Installation
