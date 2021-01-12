@@ -29,10 +29,12 @@ Models are also available in [Baidu Drive](https://pan.baidu.com/s/1dcHuHUZ9y2s7
 The codebases are built on top of [Deformable DETR](https://github.com/fundamentalvision/Deformable-DETR) and [CenterTrack](https://github.com/xingyizhou/CenterTrack).
 
 #### Requirements
-- Linux or macOS with Python ≥ 3.6
+- Linux, CUDA>=9.2, GCC>=5.4
+- Python>=3.7
 - PyTorch ≥ 1.5 and [torchvision](https://github.com/pytorch/vision/) that matches the PyTorch installation.
   You can install them together at [pytorch.org](https://pytorch.org) to make sure of this
 - OpenCV is optional and needed by demo and visualization
+
 
 #### Steps
 1. Install and build libs
