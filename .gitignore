@@ -8,7 +8,10 @@ instant_test_output
 inference_test_output
 val
 test
+visual_val_predict
+visual_val_gt
 
+*.avi
 *.png
 *.json
 *.diff
