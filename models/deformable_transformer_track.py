@@ -177,7 +177,9 @@ class DeformableTransformer(nn.Module):
                 query_embed, tgt = torch.split(query_embed, c, dim=1)
                 tgt = pre_tgt
                 reference_points = pre_reference
-                init_reference_out = reference_points + self.reference_points(query_embed).sum() * 0.0 # second part is unused
+#                 init_reference_out = reference_points + self.reference_points(query_embed).sum() * 0.0 # second part is unused
+                init_reference_out = reference_points
+
                 query_embed = None
                 # decoder
                 hs, inter_references = self.decoder_track(tgt, reference_points, memory,

@@ -9,9 +9,9 @@ import logging
 from collections import defaultdict
 
 
-def save_motval(results, out_root, video_to_images, video_names):
+def save_track(results, out_root, video_to_images, video_names, data_split='val'):
     assert out_root is not None
-    out_dir = os.path.join(out_root, "val")
+    out_dir = os.path.join(out_root, data_split)
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
 

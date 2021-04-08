@@ -21,9 +21,16 @@ import datasets
 import util.misc as utils
 import datasets.samplers as samplers
 from datasets import build_dataset, get_coco_api_from_dataset
-from track_engine.engine_tracktrain import evaluate, train_one_epoch
-from models import build_tracktrain_model as build_model
+# from track_engine.engine_track import evaluate, train_one_epoch
+# from models import build_tracktest_model as build_model
+
+from engine_track import evaluate, train_one_epoch
+from models import build_tracktrain_model, build_tracktest_model, build_model
+
 from models import Tracker
+# from models import save_motval
+from models import save_track
+
 from collections import defaultdict
 
 
@@ -128,8 +135,13 @@ def get_args_parser():
     parser.add_argument('--checkpoint_dec_ffn', default=False, action='store_true')
 
     # appended for track.
-    parser.add_argument('--track_on', default=True, type=bool)
-    parser.add_argument('--track_thresh', default=0.4, type=float)  # not use.
+    parser.add_argument('--track_train_split', default='train', type=str)
+    parser.add_argument('--track_eval_split', default='val', type=str)
+    parser.add_argument('--track_thresh', default=0.4, type=float)
+    
+    # detector for track.
+    parser.add_argument('--det_val', default=False, action='store_true')
+
 
     return parser
 
@@ -149,16 +161,23 @@ def main(args):
     torch.manual_seed(seed)
     np.random.seed(seed)
     random.seed(seed)
-
-    model, criterion, postprocessors = build_model(args)
+    
+    if args.det_val:
+        assert args.eval, 'only support eval mode of detector for track'
+        model, criterion, postprocessors = build_model(args)
+    elif args.eval:
+        model, criterion, postprocessors = build_tracktest_model(args)
+    else:
+        model, criterion, postprocessors = build_tracktrain_model(args)
+        
     model.to(device)
 
     model_without_ddp = model
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print('number of params:', n_parameters)
 
-    dataset_train = build_dataset(image_set='train', args=args)
-    dataset_val = build_dataset(image_set='val', args=args)
+    dataset_train = build_dataset(image_set=args.track_train_split, args=args)
+    dataset_val = build_dataset(image_set=args.track_eval_split, args=args)
 
     if args.distributed:
         if args.cache_mode:
@@ -263,20 +282,33 @@ def main(args):
             lr_scheduler.step(lr_scheduler.last_epoch)
             args.start_epoch = checkpoint['epoch'] + 1
         # check the resumed model
-        if not args.eval:
-            test_stats, coco_evaluator, _ = evaluate(
-                model, criterion, postprocessors, data_loader_val, base_ds, device, args.output_dir
-            )
+#         if not args.eval:
+#             test_stats, coco_evaluator, _ = evaluate(
+#                 model, criterion, postprocessors, data_loader_val, base_ds, device, args.output_dir
+#             )
     
     if args.eval:
-        tracker = None
-        if args.track_on:
-#             assert args.batch_size == 1, print("Now only support 1.")
-            tracker = Tracker(num_ins=args.num_queries, score_thresh=args.track_thresh)
+        assert args.batch_size == 1, print("Now only support 1.")
+        tracker = Tracker(score_thresh=args.track_thresh)
         test_stats, coco_evaluator, res_tracks = evaluate(model, criterion, postprocessors, data_loader_val,
-                                                          base_ds, device, args.output_dir, tracker=tracker)
+                                                          base_ds, device, args.output_dir, tracker=tracker, 
+                                                          phase='eval', det_val=args.det_val)
         if args.output_dir:
             utils.save_on_master(coco_evaluator.coco_eval["bbox"].eval, output_dir / "eval.pth")
+            if res_tracks is not None:
+                print("Creating video index for {}.".format(args.dataset_file))
+                video_to_images = defaultdict(list)
+                video_names = defaultdict()
+                for _, info in dataset_val.coco.imgs.items():
+                    video_to_images[info["video_id"]].append({"image_id": info["id"],
+                                                              "frame_id": info["frame_id"]})
+                    video_name = info["file_name"].split("/")[0]
+                    if video_name not in video_names:
+                        video_names[info["video_id"]] = video_name
+                assert len(video_to_images) == len(video_names)
+                # save mot results.
+#                 save_motval(res_tracks, args.output_dir, video_to_images, video_names)
+                save_track(res_tracks, args.output_dir, video_to_images, video_names, args.track_eval_split)
 
         return
 
@@ -303,7 +335,7 @@ def main(args):
                 }, checkpoint_path)
 
         test_stats, coco_evaluator, _ = evaluate(
-            model, criterion, postprocessors, data_loader_val, base_ds, device, args.output_dir
+            model, criterion, postprocessors, data_loader_val, base_ds, device, args.output_dir,
         )
 
         log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},

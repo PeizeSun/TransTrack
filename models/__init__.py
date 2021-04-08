@@ -11,8 +11,7 @@ from .deformable_detr import build
 from .deformable_detrtrack_test import build as build_tracktest
 from .deformable_detrtrack_train import build as build_tracktrain
 from .tracker import Tracker
-from .save_trackval import save_motval
-from .save_tracktest import save_mottest
+from .save_track import save_track
 
 
 def build_model(args):

@@ -39,8 +39,8 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
 
     # for samples, targets in metric_logger.log_every(data_loader, print_freq, header):
     for _ in metric_logger.log_every(range(len(data_loader)), print_freq, header):
-        outputs = model(samples)
-        loss_dict = criterion(outputs, targets)
+        outputs, pre_outputs = model(samples)
+        loss_dict = criterion(outputs, targets, pre_outputs)
         weight_dict = criterion.weight_dict
         losses = sum(loss_dict[k] * weight_dict[k] for k in loss_dict.keys() if k in weight_dict)
 
@@ -80,7 +80,8 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
 
 
 @torch.no_grad()
-def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, output_dir, tracker=None):
+def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, output_dir, tracker=None, 
+             phase='train', det_val=False):
     model.eval()
     criterion.eval()
 
@@ -105,7 +106,8 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
     for samples, targets in metric_logger.log_every(data_loader, 10, header):
         # pre process for track.
         if tracker is not None:
-            assert samples.tensors.shape[0] == 1, "Now only support inference of batchsize 1." 
+            if phase != 'train':
+                assert samples.tensors.shape[0] == 1, "Now only support inference of batchsize 1." 
             frame_id = targets[0].get("frame_id", None)
             assert frame_id is not None
             frame_id = frame_id.item()
@@ -115,8 +117,11 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
                 
         samples = samples.to(device)
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
-
-        outputs = model(samples)
+        
+        if det_val:
+            outputs = model(samples)
+        else:
+            outputs, pre_embed = model(samples, pre_embed)
         loss_dict = criterion(outputs, targets)
         weight_dict = criterion.weight_dict
 
