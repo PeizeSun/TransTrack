@@ -21,14 +21,9 @@ import datasets
 import util.misc as utils
 import datasets.samplers as samplers
 from datasets import build_dataset, get_coco_api_from_dataset
-# from track_engine.engine_track import evaluate, train_one_epoch
-# from models import build_tracktest_model as build_model
-
 from engine_track import evaluate, train_one_epoch
 from models import build_tracktrain_model, build_tracktest_model, build_model
-
 from models import Tracker
-# from models import save_motval
 from models import save_track
 
 from collections import defaultdict
