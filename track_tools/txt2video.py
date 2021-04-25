@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import cv2
 import glob as gb
@@ -24,7 +25,21 @@ def txt2img(visual_path="visual_val_gt"):
                     'MOT17-10-FRCNN',        
                     'MOT17-11-FRCNN',
                     'MOT17-13-FRCNN']
-    
+
+
+    test_json_path = 'mot/annotations/test.json'
+    test_img_path = 'mot/test/'
+    test_show_video_names = ['MOT17-01-FRCNN', 
+                    'MOT17-03-FRCNN',
+                    'MOT17-06-FRCNN',
+                    'MOT17-07-FRCNN',
+                    'MOT17-18-FRCNN',        
+                    'MOT17-12-FRCNN',
+                    'MOT17-14-FRCNN']
+    if visual_path == "visual_test_predict":
+        show_video_names = test_show_video_names
+        img_path = test_img_path
+        gt_json_path = test_json_path
     for show_video_name in show_video_names:
         img_dict = dict()
         
@@ -32,6 +47,8 @@ def txt2img(visual_path="visual_val_gt"):
             txt_path = 'mot/train/' + show_video_name + '/gt/gt_val_half.txt'
         elif visual_path == "visual_val_predict":
             txt_path = 'val/tracks/'+ show_video_name + '.txt'
+        elif visual_path == "visual_test_predict":
+            txt_path = 'test/tracks/'+ show_video_name + '.txt'
         else:
             raise NotImplementedError
         
@@ -97,5 +114,7 @@ def img2video(visual_path="visual_val_gt"):
 
 if __name__ == '__main__':
     visual_path="visual_val_predict"
+    if len(sys.argv) > 1:
+        visual_path =sys.argv[1]
     txt2img(visual_path)
     img2video(visual_path)
