@@ -33,7 +33,7 @@ def txt2img(visual_path="visual_val_gt"):
                     'MOT17-03-FRCNN',
                     'MOT17-06-FRCNN',
                     'MOT17-07-FRCNN',
-                    'MOT17-18-FRCNN',        
+                    'MOT17-08-FRCNN',        
                     'MOT17-12-FRCNN',
                     'MOT17-14-FRCNN']
     if visual_path == "visual_test_predict":
@@ -84,6 +84,7 @@ def txt2img(visual_path="visual_val_gt"):
                     txt_dict[int(img_id)].append(bbox)
                 else:
                     txt_dict[int(img_id)] = list()
+                    txt_dict[int(img_id)].append(bbox)
 
         for img_id in sorted(txt_dict.keys()):
             img = cv2.imread(img_dict[img_id])
