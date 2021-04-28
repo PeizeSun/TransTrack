@@ -1,6 +1,7 @@
 # output dir
 mot
 crowdhuman
+mix
 coco
 output
 output*
@@ -12,6 +13,7 @@ visual_val_predict
 visual_val_gt
 
 *.avi
+*.jpg
 *.png
 *.json
 *.diff

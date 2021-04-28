@@ -9,21 +9,22 @@
 [TransTrack: Multiple-Object Tracking with Transformer](https://arxiv.org/abs/2012.15460)
 
 
-## Models
-Training data | Training time | Validation MOTA | download
-:---:|:---:|:---:|:---:
-[crowdhuman, mot_half](track_exps/crowdhuman_mot_trainhalf.sh) |  36h + 1h  | 65.4 | [model](https://drive.google.com/drive/folders/1DjPL8xWoXDASrxgsA3O06EspJRdUXFQ-?usp=sharing)
-[crowdhuman](track_exps/crowdhuman_train.sh)                   |  36h       | 53.8 | [model](https://drive.google.com/drive/folders/1DjPL8xWoXDASrxgsA3O06EspJRdUXFQ-?usp=sharing) 
-[mot_half](track_exps/mot_trainhalf.sh)                        |  8h        | 61.6 | [model](https://drive.google.com/drive/folders/1DjPL8xWoXDASrxgsA3O06EspJRdUXFQ-?usp=sharing_)
+## Validation set
+Training data | Training time | MOTA% | FP% | FN% | IDs% | download
+:---:|:---:|:---:|:---:|:---:|:---:|:---
+[crowdhuman, mot17_half](track_exps/crowdhuman_mot_trainhalf.sh) |  ~45h + 1h  | 67.1 | 3.1  | 29.4 | 0.5 | [671mot17_crowdhuman_mot17.pth](https://drive.google.com/drive/folders/1DjPL8xWoXDASrxgsA3O06EspJRdUXFQ-?usp=sharing)
+[crowdhuman](track_exps/crowdhuman_train.sh)                   |  ~45h       | 56.0 | 11.2 | 32.3 | 0.4 | [560mot17_crowdhuman.pth](https://drive.google.com/drive/folders/1DjPL8xWoXDASrxgsA3O06EspJRdUXFQ-?usp=sharing) 
+[mot17_half](track_exps/mot_trainhalf.sh)                        |  9h        | 61.9 | 3.4  | 34.0   |0.7 |[619mot17_mot17.pth](https://drive.google.com/drive/folders/1DjPL8xWoXDASrxgsA3O06EspJRdUXFQ-?usp=sharing_)
 
 Models are also available in [Baidu Drive](https://pan.baidu.com/s/1dcHuHUZ9y2s7LEmvtVHZZw) by code m4iv.
 
 #### Notes
-- Evaluating crowdhuman-training model and mot-training model use different command lines, see Steps.
 - We observe about 1 MOTA noise.
 - If the resulting MOTA of your self-trained model is not desired, playing around with the --track_thresh sometimes gives a better performance.
+- The default track_thresh is 0.4, except for 0.5 in crowdhuman.
 - The training time is on 8 NVIDIA V100 GPUs with batchsize 16.
 - We use the models pre-trained on imagenet.
+- (crowdhuman, mot17_half) is first training on crowdhuman, then fine-tuning on mot17_half.
 
 
 ## Demo
@@ -52,26 +53,28 @@ cd ../..
 pip install -r requirements.txt
 ```
 
-2. Prepare dataset
+2. Prepare datasets and annotations
 ```
-mkdir -p crowdhuman/annotations
-cp -r /path_to_crowdhuman_dataset/annotations/CrowdHuman_val.json crowdhuman/annotations/CrowdHuman_val.json
-cp -r /path_to_crowdhuman_dataset/annotations/CrowdHuman_train.json crowdhuman/annotations/CrowdHuman_train.json
+mkdir crowdhuman
 cp -r /path_to_crowdhuman_dataset/CrowdHuman_train crowdhuman/CrowdHuman_train
 cp -r /path_to_crowdhuman_dataset/CrowdHuman_val crowdhuman/CrowdHuman_val
 mkdir mot
 cp -r /path_to_mot_dataset/train mot/train
 cp -r /path_to_mot_dataset/test mot/test
-python track_tools/convert_mot_to_coco.py
 ```
-CrowdHuman dataset is available in [CrowdHuman](https://www.crowdhuman.org/). We provide annotations of [json format](https://drive.google.com/drive/folders/1DjPL8xWoXDASrxgsA3O06EspJRdUXFQ-?usp=sharing).
-
+CrowdHuman dataset is available in [CrowdHuman](https://www.crowdhuman.org/). 
+```
+python3 track_tools/convert_crowdhuman_to_coco.py
+```
 MOT dataset is available in [MOT](https://motchallenge.net/).
+```
+python3 track_tools/convert_mot_to_coco.py
+```
 
 3. Pre-train on crowdhuman
 ```
 sh track_exps/crowdhuman_train.sh
-python track_tools/crowdhuman_model_to_mot.py
+python3 track_tools/crowdhuman_model_to_mot.py
 ```
 The pre-trained model is available [crowdhuman_final.pth](https://drive.google.com/drive/folders/1DjPL8xWoXDASrxgsA3O06EspJRdUXFQ-?usp=sharing).
 
@@ -91,12 +94,41 @@ sh track_exps/mota.sh
 python3 track_tools/txt2video.py
 ```
 
+
+## Test set
+Pre-training data | Fine-tuning data | Training time | MOTA% | FP | FN | IDs
+:---:|:---:|:---:|:---:|:---:|:---:|:---:
+crowdhuman | mot17 | ~40h + 2h | 68.4 |  |  |  
+crowdhuman | crowdhuman + mot17 | ~40h + 6h | 73.3 |  |  | 
+
 #### Notes
-- Evaluate pre-trained CrowdHuman model on MOT
+- Performance on test set is evaluated by [MOT challenge](https://motchallenge.net/).
+- (crowdhuman + mot17) is training on mixture of crowdhuman and mot17.
+
+#### Steps
+1. Train TransTrack
 ```
-sh track_exps/det_val.sh
-sh track_exps/mota.sh
+sh track_exps/crowdhuman_mot_train.sh
 ```
+
+or
+
+1. Mix crowdhuman and mot17
+```
+mkdir -p mix/annotations
+cp mot/annotations/val_half.json mix/annotations/val_half.json
+cp mot/annotations/test.json mix/annotations/test.json
+cd mix
+ln -s ../mot/train mot_train
+ln -s ../crowdhuman/CrowdHuman_train crowdhuman_train
+cd ..
+python3 track_tools/mix_data.py
+```
+2. Train TransTrack
+```
+sh track_exps/crowdhuman_plus_mot_train.sh
+```
+
 
 ## License
 

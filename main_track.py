@@ -47,7 +47,7 @@ def get_args_parser():
     parser.add_argument('--sgd', action='store_true')
 
     # Variants of Deformable DETR
-    parser.add_argument('--with_box_refine', default=False, action='store_true')
+    parser.add_argument('--with_box_refine', default=True, action='store_true')
     parser.add_argument('--two_stage', default=False, action='store_true')
 
     # Model parameters
@@ -78,7 +78,7 @@ def get_args_parser():
                         help="Dropout applied in the transformer")
     parser.add_argument('--nheads', default=8, type=int,
                         help="Number of attention heads inside the transformer's attentions")
-    parser.add_argument('--num_queries', default=300, type=int,
+    parser.add_argument('--num_queries', default=500, type=int,
                         help="Number of query slots")
     parser.add_argument('--dec_n_points', default=4, type=int)
     parser.add_argument('--enc_n_points', default=4, type=int)

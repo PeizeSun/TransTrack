@@ -1,14 +1,6 @@
 import json
 import os
 
-# mix_path = 'mix/annotations'
-# if not os.path.exists(mix_path):
-#     os.makedirs(mix_path)
-
-# os.system('cp mot/annotations/val_half.json mix/annotations/val_half.json')
-# os.system('cp mot/annotations/test.json mix/annotations/test.json')
-# os.system('ln -s mot/train mix/mot_train')
-# os.system('ln -s crowdhuman/CrowdHuman_train mix/crowdhuman_train')
 
 """
 mkdir -p mix/annotations
