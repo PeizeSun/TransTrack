@@ -14,6 +14,11 @@
 - (28/04/2021) Higher performance is reported by increasing the number of queries from 300 to 500. 
 - (08/04/2021) Refactoring the code.  
 
+## MOT challenge
+Dataset | MOTA% | IDF1% | MOTP% | MT% | ML% |  FP | FN | IDS 
+:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:
+MOT17 | 74.5 | 63.9| 80.6 | 46.8 | 11.3 | 28323 | 112137 | 3663
+MOT20 | 64.5 | 59.2 | 80.0 | 49.1 | 13.6 | 28566 | 151377 | 3565
 
 ## Validation set
 Training data | Training time | MOTA% | FP% | FN% | IDs% | download
@@ -104,8 +109,8 @@ python3 track_tools/txt2video.py
 ## Test set
 Pre-training data | Fine-tuning data | Training time | MOTA% | FP | FN | IDs
 :---:|:---:|:---:|:---:|:---:|:---:|:---:
-crowdhuman | mot17 | ~40h + 2h | 68.4 |  |  |  
-crowdhuman | crowdhuman + mot17 | ~40h + 6h | 73.3 |  |  | 
+crowdhuman | mot17 | ~40h + 2h | 68.4 | 22137  | 152064  | 3942  
+crowdhuman | crowdhuman + mot17 | ~40h + 6h | 74.5 | 28323 | 112137 | 3663 
 
 #### Notes
 - Performance on test set is evaluated by [MOT challenge](https://motchallenge.net/).
