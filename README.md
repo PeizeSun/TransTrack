@@ -1,4 +1,4 @@
-## TransTrack: Multiple-Object Tracking with Transformer
+## TransTrack: Multiple Object Tracking with Transformer
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -6,7 +6,7 @@
 
 
 ## Introduction
-[TransTrack: Multiple-Object Tracking with Transformer](https://arxiv.org/abs/2012.15460)
+[TransTrack: Multiple Object Tracking with Transformer](https://arxiv.org/abs/2012.15460)
 
 ## Updates
 - (28/04/2021) Higher performance is reported by training on mixture of CrowdHuman and MOT, instead of first CrowdHuman then MOT. 
@@ -115,7 +115,8 @@ crowdhuman | crowdhuman + mot17 | ~40h + 6h | 74.5 | 28323 | 112137 | 3663
 #### Notes
 - Performance on test set is evaluated by [MOT challenge](https://motchallenge.net/).
 - (crowdhuman + mot17) is training on mixture of crowdhuman and mot17.
-
+- We won't release trained models for test test. Running as in Steps could reproduce them. 
+ 
 #### Steps
 1. Train TransTrack
 ```
@@ -154,7 +155,7 @@ If you use TransTrack in your research or wish to refer to the baseline results 
 
 @article{transtrack,
   title   =  {TransTrack: Multiple-Object Tracking with Transformer},
-  author  =  {Peize Sun and Yi Jiang and Rufeng Zhang and Enze Xie and Jinkun Cao and Xinting Hu and Tao Kong and Zehuan Yuan and Changhu Wang and Ping Luo},
+  author  =  {Peize Sun and Jinkun Cao and Yi Jiang and Rufeng Zhang and Enze Xie and Zehuan Yuan and Changhu Wang and Ping Luo},
   journal =  {arXiv preprint arXiv: 2012.15460},
   year    =  {2020}
 }
