@@ -77,7 +77,8 @@ class Tracker(object):
         M = len(tracks)
         
         ret = list()
-        unmatched_tracks = [d for d in range(M)]
+        unmatched_tracks = [t for t in range(M)]
+        unmatched_dets = [d for d in range(N)]
         if N > 0 and M > 0:
             det_box   = torch.stack([torch.tensor(obj['bbox']) for obj in results], dim=0) # N x 4        
             track_box = torch.stack([torch.tensor(obj['bbox']) for obj in tracks], dim=0) # M x 4                
@@ -108,14 +109,14 @@ class Tracker(object):
     #             track['vxvy'] = [cur_cx - pre_cx, cur_cy - pre_cy]
                 ret.append(track)
 
-            for i in unmatched_dets:
-                track = results[i]
-                self.id_count += 1
-                track['tracking_id'] = self.id_count
-                track['age'] = 1
-                track['active'] =  1
-                track['vxvy'] = [0.0, 0.0]
-                ret.append(track)
+        for i in unmatched_dets:
+            track = results[i]
+            self.id_count += 1
+            track['tracking_id'] = self.id_count
+            track['age'] = 1
+            track['active'] =  1
+#             track['vxvy'] = [0.0, 0.0]
+            ret.append(track)
         
         ret_unmatched_tracks = []
         for i in unmatched_tracks:
