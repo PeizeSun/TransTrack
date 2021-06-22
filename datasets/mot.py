@@ -187,7 +187,7 @@ def make_coco_transforms(image_set):
     
     
     
-def make_mot_transforms(image_set):
+def make_mot_transforms(image_set, args):
 
     normalize = T.Compose([
         T.ToTensor(),
@@ -196,7 +196,7 @@ def make_mot_transforms(image_set):
 
     scales = [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800]
 
-    if image_set == 'train':
+    if image_set == 'train' and not args.eval:
         return T.Compose([
             T.RandomHorizontalFlip(),
             T.RandomSelect(
@@ -211,7 +211,7 @@ def make_mot_transforms(image_set):
             normalize,
         ])
     
-    if image_set == 'trainall':
+    if image_set == 'trainall' and not args.eval:
         return T.Compose([
             T.RandomHorizontalFlip(),
             T.RandomSelect(
@@ -225,12 +225,12 @@ def make_mot_transforms(image_set):
             ),
             normalize,
         ])
-    if image_set == 'val':
+    if image_set == 'val' or args.eval:
         return T.Compose([
             T.RandomResize([800], max_size=1333),
             normalize,
         ])
-    if image_set == 'test':
+    if image_set == 'test' or args.eval:
         return T.Compose([
             T.RandomResize([800], max_size=1333),
             normalize,
@@ -253,6 +253,6 @@ def build(image_set, args):
     }
 
     img_folder, ann_file = PATHS[image_set]
-    dataset = CocoDetection(img_folder, ann_file, transforms=make_mot_transforms(image_set), return_masks=args.masks,
+    dataset = CocoDetection(img_folder, ann_file, transforms=make_mot_transforms(image_set, args), return_masks=args.masks,
                             cache_mode=args.cache_mode, local_rank=get_local_rank(), local_size=get_local_size())
     return dataset
