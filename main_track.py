@@ -106,6 +106,7 @@ def get_args_parser():
     parser.add_argument('--bbox_loss_coef', default=5, type=float)
     parser.add_argument('--giou_loss_coef', default=2, type=float)
     parser.add_argument('--focal_alpha', default=0.25, type=float)
+    parser.add_argument('--id_loss_coef', default=2, type=float)
 
     # dataset parameters
     parser.add_argument('--dataset_file', default='coco')
@@ -305,7 +306,6 @@ def main(args):
                         video_names[info["video_id"]] = video_name
                 assert len(video_to_images) == len(video_names)
                 # save mot results.
-#                 save_motval(res_tracks, args.output_dir, video_to_images, video_names)
                 save_track(res_tracks, args.output_dir, video_to_images, video_names, args.track_eval_split)
 
         return
