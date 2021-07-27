@@ -133,6 +133,9 @@ def get_args_parser():
     parser.add_argument('--track_train_split', default='train', type=str)
     parser.add_argument('--track_eval_split', default='val', type=str)
     parser.add_argument('--track_thresh', default=0.4, type=float)
+    parser.add_argument('--reid_dim', default=128, type=int)
+    parser.add_argument('--num_ids', default=360, type=int)
+    
     
     # detector for track.
     parser.add_argument('--det_val', default=False, action='store_true')
