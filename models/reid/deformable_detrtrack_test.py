@@ -36,7 +36,7 @@ def _get_clones(module, N):
 class DeformableDETR(nn.Module):
     """ This is the Deformable DETR module that performs object detection """
     def __init__(self, backbone, transformer, num_classes, num_ids, reid_dim, num_queries, num_feature_levels,
-                 aux_loss=True, with_box_refine=False, two_stage=False):
+                 aux_loss=True, with_box_refine=False, two_stage=False, reid_shared=False):
         """ Initializes the model.
         Parameters:
             backbone: torch module of the backbone to be used. See backbone.py
@@ -173,7 +173,7 @@ class DeformableDETR(nn.Module):
         query_embeds = None
         if not self.two_stage:
             query_embeds = self.query_embed.weight
-        hs, init_reference, inter_references, enc_outputs_class, enc_outputs_coord_unact, memory = self.transformer(srcs, masks, pos, query_embeds)
+        hs, hs_reid, init_reference, inter_references, enc_outputs_class, enc_outputs_coord_unact, memory = self.transformer(srcs, masks, pos, query_embeds)
         cur_hs = hs
         outputs_classes = []
         outputs_coords = []
@@ -187,7 +187,7 @@ class DeformableDETR(nn.Module):
             reference = inverse_sigmoid(reference)
             outputs_class = self.class_embed[lvl](hs[lvl])
             tmp = self.bbox_embed[lvl](hs[lvl])
-            outputs_reid = self.reid_embed[lvl](hs[lvl])
+            outputs_reid = self.reid_embed[lvl](hs_reid[lvl])
             
             if reference.shape[-1] == 4:
                 tmp += reference
@@ -206,50 +206,10 @@ class DeformableDETR(nn.Module):
         cur_class = outputs_class[-1]
         cur_box = outputs_coord[-1]
         cur_reid = outputs_reid[-1]
-        cur_reference = cur_box
-        cur_tgt = cur_hs[-1]
-            
-        if pre_embed is not None:
-            # track mode
-            pre_reference, pre_tgt = pre_embed['reference'], pre_embed['tgt']
-                    
-            hs, init_reference, inter_references, enc_outputs_class, enc_outputs_coord_unact, _ = self.transformer(srcs, masks, pos, query_embeds, pre_reference, pre_tgt, memory)
-            outputs_classes = []
-            outputs_coords = []
-            outputs_reids = []
-            
-            for lvl in range(hs.shape[0]):
-                if lvl == 0:
-                    reference = init_reference
-                else:
-                    reference = inter_references[lvl - 1]
-                reference = inverse_sigmoid(reference)
-                outputs_class = self.class_embed[lvl](hs[lvl])
-                tmp = self.bbox_embed[lvl](hs[lvl])
-                outputs_reid = self.reid_embed[lvl](hs[lvl])
-                if reference.shape[-1] == 4:
-                    tmp += reference
-                else:
-                    assert reference.shape[-1] == 2
-                    tmp[..., :2] += reference
-                outputs_coord = tmp.sigmoid()
-                outputs_classes.append(outputs_class)
-                outputs_coords.append(outputs_coord)
-                outputs_reids.append(outputs_reid)
-            outputs_class = torch.stack(outputs_classes)
-            outputs_coord = torch.stack(outputs_coords)
-            outputs_reid = torch.stack(outputs_reids)
+        
+        out = {'pred_logits': cur_class, 'pred_boxes': cur_box, 'pred_reids': cur_reid} 
 
-            pre_class, pre_box, pre_reid = outputs_class[-1], outputs_coord[-1], outputs_reid[-1]
-            
-        else:
-            pre_class, pre_box, pre_reid = cur_class, cur_box, cur_reid
-    
-        
-        out = {'pred_logits': cur_class, 'pred_boxes': cur_box, 'pred_reids': cur_reid, 
-               'tracking_logits': pre_class, 'tracking_boxes': pre_box, 'tracking_reids': pre_reid}
-        
-        pre_embed = {'reference': cur_reference, 'tgt': cur_tgt, 'feat': features}
+        pre_embed = {'feat': features}
          
         if self.aux_loss:
             out['aux_outputs'] = self._set_aux_loss(outputs_class, outputs_coord)
@@ -477,7 +437,6 @@ class PostProcess(nn.Module):
                           For visualization, this should be the image size after data augment, but before padding
         """
         out_logits, out_bbox, out_reid = outputs['pred_logits'], outputs['pred_boxes'], outputs['pred_reids']
-        track_logits, track_bbox, track_reid = outputs['tracking_logits'], outputs['tracking_boxes'], outputs['tracking_reids']
         
         assert len(out_logits) == len(target_sizes)
         assert target_sizes.shape[1] == 2
@@ -488,21 +447,14 @@ class PostProcess(nn.Module):
         boxes = box_ops.box_cxcywh_to_xyxy(out_bbox)
         reids = F.normalize(out_reid, dim=2)
         
-        track_prob = track_logits.sigmoid()
-        track_scores, track_labels = track_prob[..., 1:2].max(-1)
-        track_labels = track_labels + 1
-        track_boxes = box_ops.box_cxcywh_to_xyxy(track_bbox)
-        track_reids = F.normalize(track_reid, dim=2)
-        
         # and from relative [0, 1] to absolute [0, height] coordinates
         img_h, img_w = target_sizes.unbind(1)
         scale_fct = torch.stack([img_w, img_h, img_w, img_h], dim=1)
         boxes = boxes * scale_fct[:, None, :]
-        track_boxes = track_boxes * scale_fct[:, None, :]
 
-        results = [{'scores': s, 'labels': l, 'boxes': b, 'reids': r, 'track_scores': ts, 'track_labels': tl, 'track_boxes': tb, 'track_reids': tr} 
-                   for s, l, b, r, ts, tl, tb, tr in zip(scores, labels, boxes, reids, track_scores, track_labels, track_boxes, track_reids)]
-
+        results = [{'scores': s, 'labels': l, 'boxes': b, 'reids': r, } 
+                   for s, l, b, r in zip(scores, labels, boxes, reids)]
+    
         return results
 
 
@@ -541,6 +493,7 @@ def build(args):
         num_classes=num_classes,
         num_ids=args.num_ids,
         reid_dim=args.reid_dim,
+        reid_shared=args.reid_shared,
         num_queries=args.num_queries,
         num_feature_levels=args.num_feature_levels,
         aux_loss=args.aux_loss,

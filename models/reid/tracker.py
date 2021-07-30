@@ -57,8 +57,6 @@ class Tracker(object):
         classes = output_results["labels"]
         bboxes = output_results["boxes"]  # x1y1x2y2
         reids = output_results["reids"]
-        track_bboxes = output_results["track_boxes"] if "track_boxes" in output_results else None # x1y1x2y2
-        track_reids = output_results["track_reids"] if "track_reids" in output_results else None
         
         results = list()
         results_dict = dict()
@@ -66,9 +64,6 @@ class Tracker(object):
         tracks = list()
         
         for idx in range(scores.shape[0]):
-            if idx in self.tracks_dict and track_bboxes is not None:
-                self.tracks_dict[idx]["bbox"] = track_bboxes[idx, :].cpu().numpy().tolist()
-                self.tracks_dict[idx]["reid"] = track_reids[idx, :].cpu().numpy()
 
             if scores[idx] >= self.score_thresh:
                 obj = dict()
@@ -98,7 +93,7 @@ class Tracker(object):
             cost_bbox = 1.0 - box_ops.generalized_box_iou(det_box, track_box) # N x M
             cost_mix = 0.5 * cost_reid + 0.5 * cost_bbox
 
-            matched_indices = linear_sum_assignment(cost_bbox)
+            matched_indices = linear_sum_assignment(cost_mix)
             unmatched_dets = [d for d in range(N) if not (d in matched_indices[0])]
             unmatched_tracks = [d for d in range(M) if not (d in matched_indices[1])]
 

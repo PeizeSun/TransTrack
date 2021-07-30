@@ -36,7 +36,7 @@ def _get_clones(module, N):
 class DeformableDETR(nn.Module):
     """ This is the Deformable DETR module that performs object detection """
     def __init__(self, backbone, transformer, num_classes, num_ids, reid_dim, num_queries, num_feature_levels,
-                 aux_loss=True, with_box_refine=False, two_stage=False):
+                 aux_loss=True, with_box_refine=False, two_stage=False, reid_shared=False):
         """ Initializes the model.
         Parameters:
             backbone: torch module of the backbone to be used. See backbone.py
@@ -158,111 +158,17 @@ class DeformableDETR(nn.Module):
         
         return new_samples, new_targets
             
-    def forward(self, samples_targets, unused_embed=None):
+    def forward(self, samples_targets, pre_embed=None):
         if self.training:
             samples, targets = samples_targets        
             pre_samples, pre_targets = self.randshift(samples, targets)
-            prepre_samples, _ = self.randshift(samples, targets)
-
-            pre_out, pre_embed = self.forward_once(pre_samples, prepre_samples, pre_targets, targets)             
-            
-            if torch.randn(1).item() > 0.0:
-                out, _ = self.forward_train(samples, pre_embed)     
-            else:
-                for key in pre_embed:
-                    if key != 'feat':
-                        pre_embed[key] = None
-                out, _ = self.forward_train(samples, pre_embed)
-                pre_out = None
-                pre_targets = None
-            return out, pre_out, pre_targets
-        
+            return self.forward_train(samples, pre_samples)
         else:
-            samples = samples_targets
-            out, _ = self.forward_train(samples)         
-            return out, None
+            samples = samples_targets        
+            return self.forward_train(samples, samples)
+
     
-    @torch.no_grad()    
-    def forward_once(self, samples: NestedTensor, train_samples: NestedTensor, targets=None, next_targets=None):
-        if not isinstance(samples, NestedTensor):
-            samples = nested_tensor_from_tensor_list(samples)
-        features, pos = self.backbone(samples)
-
-        if not isinstance(train_samples, NestedTensor):
-            train_samples = nested_tensor_from_tensor_list(train_samples)
-        pre_feat, _ = self.backbone(train_samples)
-        
-        srcs = []
-        masks = []
-        
-        for l, (feat, feat2) in enumerate(zip(features, pre_feat)):
-            src, mask = feat.decompose()
-            src2, _ = feat2.decompose()
-            srcs.append(self.combine(torch.cat([self.input_proj[l](src), self.input_proj[l](src2)], dim=1)))
-            masks.append(mask)
-            assert mask is not None
-
-        if self.num_feature_levels > len(srcs):
-            _len_srcs = len(srcs)
-            for l in range(_len_srcs, self.num_feature_levels):
-                if l == _len_srcs:
-                    src = self.combine(torch.cat([self.input_proj[l](features[-1].tensors), self.input_proj[l](pre_feat[-1].tensors)], dim=1))
-                else:
-                    src = self.input_proj[l](srcs[-1])
-
-                m = samples.mask
-                mask = F.interpolate(m[None].float(), size=src.shape[-2:]).to(torch.bool)[0]
-                pos_l = self.backbone[1](NestedTensor(src, mask)).to(src.dtype)
-                srcs.append(src)
-                masks.append(mask)
-                pos.append(pos_l)
-            
-        query_embeds = None
-        if not self.two_stage:
-            query_embeds = self.query_embed.weight
-        hs, init_reference, inter_references, enc_outputs_class, enc_outputs_coord_unact, memory = self.transformer(srcs, masks, pos, query_embeds)
-
-        outputs_classes = []
-        outputs_coords = []
-        outputs_reids = []
-        outputs_ids = []
-        for lvl in range(hs.shape[0]):
-            if lvl == 0:
-                reference = init_reference
-            else:
-                reference = inter_references[lvl - 1]
-            reference = inverse_sigmoid(reference)
-            outputs_class = self.class_embed[lvl](hs[lvl])
-            outputs_reid = self.reid_embed[lvl](hs[lvl])
-            outputs_id = self.reid_cls[lvl](self.emb_scale * F.normalize(outputs_reid, dim=2))
-            tmp = self.bbox_embed[lvl](hs[lvl])
-            if reference.shape[-1] == 4:
-                tmp += reference
-            else:
-                assert reference.shape[-1] == 2
-                tmp[..., :2] += reference
-            outputs_coord = tmp.sigmoid()
-            outputs_classes.append(outputs_class)
-            outputs_coords.append(outputs_coord)
-            outputs_reids.append(outputs_reid)
-            outputs_ids.append(outputs_id)
-        outputs_class = torch.stack(outputs_classes)
-        outputs_coord = torch.stack(outputs_coords)
-        outputs_reid = torch.stack(outputs_reids)
-        outputs_id = torch.stack(outputs_ids)
-               
-        out = {'pred_logits': outputs_class[-1], 'pred_boxes': outputs_coord[-1], 'pred_reids': outputs_reid[-1], 'pred_ids': outputs_id[-1]}
-        pre_embed = {'reference': outputs_coord[-1], 'tgt': hs[-1], 'feat': features, 'memory': memory}
-        
-        if self.aux_loss:
-            out['aux_outputs'] = self._set_aux_loss(outputs_class, outputs_coord, outputs_id)   
-        
-        if self.two_stage:
-            enc_outputs_coord = enc_outputs_coord_unact.sigmoid()
-            out['enc_outputs'] = {'pred_logits': enc_outputs_class, 'pred_boxes': enc_outputs_coord}
-        return out, pre_embed
-    
-    def forward_train(self, samples: NestedTensor, pre_embed=None):
+    def forward_train(self, samples: NestedTensor, pre_samples: NestedTensor):
         """ The forward expects a NestedTensor, which consists of:
                - samples.tensor: batched images, of shape [batch_size x 3 x H x W]
                - samples.mask: a binary mask of shape [batch_size x H x W], containing 1 on padded pixels
@@ -280,13 +186,9 @@ class DeformableDETR(nn.Module):
             samples = nested_tensor_from_tensor_list(samples)
         features, pos = self.backbone(samples)
         
-        if pre_embed is not None:
-            pre_reference, pre_tgt, pre_feat, pre_memory = pre_embed['reference'], pre_embed['tgt'], pre_embed['feat'], pre_embed['memory']
-        else:
-            pre_reference = None
-            pre_tgt = None
-            pre_memory = None
-            pre_feat = features
+        if not isinstance(pre_samples, NestedTensor):
+            train_samples = nested_tensor_from_tensor_list(train_samples)
+        pre_feat, _ = self.backbone(pre_samples)
         
         srcs = []
         masks = []
@@ -316,7 +218,7 @@ class DeformableDETR(nn.Module):
         query_embeds = None
         if not self.two_stage:
             query_embeds = self.query_embed.weight        
-        hs, init_reference, inter_references, enc_outputs_class, enc_outputs_coord_unact, _ = self.transformer(srcs, masks, pos, query_embeds, pre_reference, pre_tgt)           
+        hs, hs_reid, init_reference, inter_references, enc_outputs_class, enc_outputs_coord_unact, _ = self.transformer(srcs, masks, pos, query_embeds)           
             
         outputs_classes = []
         outputs_coords = []
@@ -329,7 +231,7 @@ class DeformableDETR(nn.Module):
                 reference = inter_references[lvl - 1]
             reference = inverse_sigmoid(reference)
             outputs_class = self.class_embed[lvl](hs[lvl])
-            outputs_reid = self.reid_embed[lvl](hs[lvl])
+            outputs_reid = self.reid_embed[lvl](hs_reid[lvl])
             outputs_id = self.reid_cls[lvl](self.emb_scale * F.normalize(outputs_reid, dim=2))
             tmp = self.bbox_embed[lvl](hs[lvl])
             if reference.shape[-1] == 4:
@@ -524,28 +426,17 @@ class SetCriterion(nn.Module):
         assert loss in loss_map, f'do you really want to compute {loss} loss?'
         return loss_map[loss](outputs, targets, indices, num_boxes, **kwargs)
 
-    def forward(self, outputs, targets, pre_outputs=None, pre_targets=None):
+    def forward(self, outputs, targets):
         """ This performs the loss computation.
         Parameters:
              outputs: dict of tensors, see the output specification of the model for the format
              targets: list of dicts, such that len(targets) == batch_size.
                       The expected keys in each dict depends on the losses applied, see each loss' doc
         """
-#         if pre_outputs is None:
-#             outputs_without_aux = {k: v for k, v in outputs.items() if k != 'aux_outputs' and k != 'enc_outputs'}
-#             # Retrieve the matching between the outputs of the last layer and the targets
-#             indices = self.matcher(outputs_without_aux, targets)
-#         else:
-#             outputs_without_aux = {k: v for k, v in pre_outputs.items() if k != 'aux_outputs' and k != 'enc_outputs'}
-#             # Retrieve the matching between the outputs of the last layer and the targets
-#             indices = self.matcher(outputs_without_aux, pre_targets)
-        
         outputs_without_aux = {k: v for k, v in outputs.items() if k != 'aux_outputs' and k != 'enc_outputs'}
         # Retrieve the matching between the outputs of the last layer and the targets
         indices = self.matcher(outputs_without_aux, targets)
-            
-#         pre_indices = indices
-
+        
         # Compute the average number of target boxes accross all nodes, for normalization purposes
         num_boxes = sum(len(t["labels"]) for t in targets)
         num_boxes = torch.as_tensor([num_boxes], dtype=torch.float, device=next(iter(outputs.values())).device)
@@ -562,10 +453,6 @@ class SetCriterion(nn.Module):
         # In case of auxiliary losses, we repeat this process with the output of each intermediate layer.
         if 'aux_outputs' in outputs:
             for i, aux_outputs in enumerate(outputs['aux_outputs']):
-#                 if pre_outputs is not None:
-#                     indices = pre_indices
-#                 else:
-#                     indices = self.matcher(aux_outputs, targets)
                 indices = self.matcher(aux_outputs, targets)
 
                 for loss in self.losses:
@@ -674,6 +561,7 @@ def build(args):
         num_classes=num_classes,
         num_ids=args.num_ids,
         reid_dim=args.reid_dim,
+        reid_shared=args.reid_shared,
         num_queries=args.num_queries,
         num_feature_levels=args.num_feature_levels,
         aux_loss=args.aux_loss,
