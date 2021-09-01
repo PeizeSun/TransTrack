@@ -178,10 +178,11 @@ def main(args):
     _, _ = model.load_state_dict(checkpoint['model'], strict=False)
     print("Model is loaded")
     
-
-    mean = np.array([0.485, 0.456, 0.406], dtype=np.float32).reshape(1, 1, 3)
-    std = np.array([0.229, 0.224, 0.225], dtype=np.float32).reshape(1, 1, 3)
+    
+    mean = [0.485, 0.456, 0.406]
+    std = [0.229, 0.224, 0.225]    
     color_list = colormap()
+    
     
     print("Starting inference")
     count = 0
@@ -193,10 +194,8 @@ def main(args):
     while res:
         count += 1
         resized_img, nh, nw = resize(img)
-        rbg_img = resized_img[:,:,[2,1,0]] # bgr to rgb
-        normed_img = (rbg_img / 255. - mean) / std
-        
-        tensor_img = F.to_tensor(normed_img.astype(np.float32))
+        rbg_img = cv2.cvtColor(resized_img, cv2.COLOR_BGR2RGB)        
+        tensor_img = F.normalize(F.to_tensor(rbg_img), mean, std)
         samples = nested_tensor_from_tensor_list([tensor_img]).to(device)
         outputs, pre_embed = model(samples, pre_embed)
 
