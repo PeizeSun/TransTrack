@@ -194,8 +194,8 @@ def main(args):
     while res:
         count += 1
         resized_img, nh, nw = resize(img)
-        rbg_img = cv2.cvtColor(resized_img, cv2.COLOR_BGR2RGB)        
-        tensor_img = F.normalize(F.to_tensor(rbg_img), mean, std)
+        rgb_img = cv2.cvtColor(resized_img, cv2.COLOR_BGR2RGB)        
+        tensor_img = F.normalize(F.to_tensor(rgb_img), mean, std)
         samples = nested_tensor_from_tensor_list([tensor_img]).to(device)
         outputs, pre_embed = model(samples, pre_embed)
 
