@@ -142,7 +142,8 @@ def get_args_parser():
     # detector for track.
     parser.add_argument('--det_val', default=False, action='store_true')
 
-
+    # fp16
+    parser.add_argument('--fp16', default=False, action='store_true')
     return parser
 
 
@@ -162,6 +163,7 @@ def main(args):
     np.random.seed(seed)
     random.seed(seed)
     
+    scaler = torch.cuda.amp.GradScaler(enabled=args.fp16)
     if args.det_val:
         assert args.eval, 'only support eval mode of detector for track'
         model, criterion, postprocessors = build_model(args)
@@ -292,7 +294,7 @@ def main(args):
         tracker = Tracker(score_thresh=args.track_thresh)
         test_stats, coco_evaluator, res_tracks = evaluate(model, criterion, postprocessors, data_loader_val,
                                                           base_ds, device, args.output_dir, tracker=tracker, 
-                                                          phase='eval', det_val=args.det_val)
+                                                          phase='eval', det_val=args.det_val, fp16=args.fp16)
         if args.output_dir:
             utils.save_on_master(coco_evaluator.coco_eval["bbox"].eval, output_dir / "eval.pth")
             if res_tracks is not None:
@@ -317,7 +319,7 @@ def main(args):
         if args.distributed:
             sampler_train.set_epoch(epoch)
         train_stats = train_one_epoch(
-            model, criterion, data_loader_train, optimizer, device, epoch, args.clip_max_norm)
+            model, criterion, data_loader_train, optimizer, device, scaler, epoch, args.clip_max_norm, fp16=args.fp16)
         lr_scheduler.step()
         if args.output_dir:
             checkpoint_paths = [output_dir / 'checkpoint.pth']
@@ -334,7 +336,7 @@ def main(args):
                 }, checkpoint_path)
         if epoch % 10 == 0 or epoch > args.epochs - 5:
             test_stats, coco_evaluator, _ = evaluate(
-                model, criterion, postprocessors, data_loader_val, base_ds, device, args.output_dir,
+                model, criterion, postprocessors, data_loader_val, base_ds, device, args.output_dir, fp16=args.fp16
             )
 
         log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},

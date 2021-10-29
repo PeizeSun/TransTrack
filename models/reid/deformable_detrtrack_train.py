@@ -162,7 +162,8 @@ class DeformableDETR(nn.Module):
         if self.training:
             samples, targets = samples_targets        
             pre_samples, pre_targets = self.randshift(samples, targets)
-            return self.forward_train(samples, pre_samples)
+            out, _ =  self.forward_train(samples, pre_samples)
+            return out, None, None
         else:
             samples = samples_targets        
             return self.forward_train(samples, samples)
@@ -426,7 +427,7 @@ class SetCriterion(nn.Module):
         assert loss in loss_map, f'do you really want to compute {loss} loss?'
         return loss_map[loss](outputs, targets, indices, num_boxes, **kwargs)
 
-    def forward(self, outputs, targets):
+    def forward(self, outputs, targets, pre_outputs=None, pre_targets=None):
         """ This performs the loss computation.
         Parameters:
              outputs: dict of tensors, see the output specification of the model for the format

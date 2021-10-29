@@ -9,7 +9,6 @@ import torch.nn.functional as F
 from torch.nn.init import xavier_uniform_, constant_
 
 from ..functions import MSDeformAttnFunction, ms_deform_attn_core_pytorch
-from ..functions import ms_deform_attn_core_pytorch_mot
 
 
 class MSDeformAttn(nn.Module):

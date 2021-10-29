@@ -24,9 +24,11 @@ from datasets.data_prefetcher import data_prefetcher
 
 def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
                     data_loader: Iterable, optimizer: torch.optim.Optimizer,
-                    device: torch.device, epoch: int, max_norm: float = 0):
+                    device: torch.device, scaler: torch.cuda.amp.GradScaler,
+                    epoch: int, max_norm: float = 0, fp16=False):
     model.train()
     criterion.train()
+    tensor_type = torch.cuda.HalfTensor if fp16 else torch.cuda.FloatTensor
     metric_logger = utils.MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
     metric_logger.add_meter('class_error', utils.SmoothedValue(window_size=1, fmt='{value:.2f}'))
@@ -39,10 +41,14 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
 
     # for samples, targets in metric_logger.log_every(data_loader, print_freq, header):
     for _ in metric_logger.log_every(range(len(data_loader)), print_freq, header):
-        outputs, pre_outputs, pre_targets = model([samples, targets])
-        loss_dict = criterion(outputs, targets, pre_outputs, pre_targets)
-        weight_dict = criterion.weight_dict
-        losses = sum(loss_dict[k] * weight_dict[k] for k in loss_dict.keys() if k in weight_dict)
+        samples.tensors = samples.tensors.type(tensor_type)
+        samples.mask = samples.mask.type(tensor_type)
+
+        with torch.cuda.amp.autocast(enabled=fp16):
+            outputs, pre_outputs, pre_targets = model([samples, targets])
+            loss_dict = criterion(outputs, targets, pre_outputs, pre_targets)
+            weight_dict = criterion.weight_dict
+            losses = sum(loss_dict[k] * weight_dict[k] for k in loss_dict.keys() if k in weight_dict)
 
         # reduce losses over all GPUs for logging purposes
         loss_dict_reduced = utils.reduce_dict(loss_dict)
@@ -60,13 +66,15 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
             sys.exit(1)
 
         optimizer.zero_grad()
-        losses.backward()
+        scaler.scale(losses).backward()
+        scaler.unscale_(optimizer)
         if max_norm > 0:
             grad_total_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm)
         else:
             grad_total_norm = utils.get_total_grad_norm(model.parameters(), max_norm)
-        optimizer.step()
-
+        scaler.step(optimizer)
+        scaler.update()
+        
         metric_logger.update(loss=loss_value, **loss_dict_reduced_scaled, **loss_dict_reduced_unscaled)
         metric_logger.update(class_error=loss_dict_reduced['class_error'])
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
@@ -81,12 +89,13 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
 
 @torch.no_grad()
 def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, output_dir, tracker=None, 
-             phase='train', det_val=False):
+             phase='train', det_val=False, fp16=False):
+    tensor_type = torch.cuda.HalfTensor if fp16 else torch.cuda.FloatTensor
     model.eval()
-    criterion.eval()
-
+#     criterion.eval()
+       
     metric_logger = utils.MetricLogger(delimiter="  ")
-    metric_logger.add_meter('class_error', utils.SmoothedValue(window_size=1, fmt='{value:.2f}'))
+#     metric_logger.add_meter('class_error', utils.SmoothedValue(window_size=1, fmt='{value:.2f}'))
     header = 'Test:'
 
     iou_types = tuple(k for k in ('segm', 'bbox') if k in postprocessors.keys())
@@ -116,25 +125,31 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
                 pre_embed = None
                 
         samples = samples.to(device)
+        samples.tensors = samples.tensors.type(tensor_type)
+        samples.mask = samples.mask.type(tensor_type)
+
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
         
-        if det_val:
-            outputs = model(samples)
-        else:
-            outputs, pre_embed = model(samples, pre_embed)
-        loss_dict = criterion(outputs, targets)
-        weight_dict = criterion.weight_dict
+        with torch.cuda.amp.autocast(enabled=fp16):
+            if det_val:
+                outputs = model(samples)
+            else:
+                outputs, pre_embed = model(samples, pre_embed)
+            
+#             loss_dict = criterion(outputs, targets)
+            
+#         weight_dict = criterion.weight_dict
 
 #         reduce losses over all GPUs for logging purposes
-        loss_dict_reduced = utils.reduce_dict(loss_dict)
-        loss_dict_reduced_scaled = {k: v * weight_dict[k]
-                                    for k, v in loss_dict_reduced.items() if k in weight_dict}
-        loss_dict_reduced_unscaled = {f'{k}_unscaled': v
-                                      for k, v in loss_dict_reduced.items()}
-        metric_logger.update(loss=sum(loss_dict_reduced_scaled.values()),
-                             **loss_dict_reduced_scaled,
-                             **loss_dict_reduced_unscaled)
-        metric_logger.update(class_error=loss_dict_reduced['class_error'])
+#         loss_dict_reduced = utils.reduce_dict(loss_dict)
+#         loss_dict_reduced_scaled = {k: v * weight_dict[k]
+#                                     for k, v in loss_dict_reduced.items() if k in weight_dict}
+#         loss_dict_reduced_unscaled = {f'{k}_unscaled': v
+#                                       for k, v in loss_dict_reduced.items()}
+#         metric_logger.update(loss=sum(loss_dict_reduced_scaled.values()),
+#                              **loss_dict_reduced_scaled,
+#                              **loss_dict_reduced_unscaled)
+#         metric_logger.update(class_error=loss_dict_reduced['class_error'])
 
         orig_target_sizes = torch.stack([t["orig_size"] for t in targets], dim=0)
         results = postprocessors['bbox'](outputs, orig_target_sizes)
@@ -142,6 +157,7 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
         if 'segm' in postprocessors.keys():
             target_sizes = torch.stack([t["size"] for t in targets], dim=0)
             results = postprocessors['segm'](results, outputs, orig_target_sizes, target_sizes)
+        
         res = {target['image_id'].item(): output for target, output in zip(targets, results)}
 
         # post process for track.
@@ -166,8 +182,8 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
             panoptic_evaluator.update(res_pano)
 
     # gather the stats from all processes
-    metric_logger.synchronize_between_processes()
-    print("Averaged stats:", metric_logger)
+#     metric_logger.synchronize_between_processes()
+#     print("Averaged stats:", metric_logger)
     if coco_evaluator is not None:
         coco_evaluator.synchronize_between_processes()
     if panoptic_evaluator is not None:
