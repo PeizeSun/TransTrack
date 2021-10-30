@@ -296,7 +296,7 @@ def main(args):
                                                           base_ds, device, args.output_dir, tracker=tracker, 
                                                           phase='eval', det_val=args.det_val, fp16=args.fp16)
         if args.output_dir:
-            utils.save_on_master(coco_evaluator.coco_eval["bbox"].eval, output_dir / "eval.pth")
+#             utils.save_on_master(coco_evaluator.coco_eval["bbox"].eval, output_dir / "eval.pth")
             if res_tracks is not None:
                 print("Creating video index for {}.".format(args.dataset_file))
                 video_to_images = defaultdict(list)
@@ -334,30 +334,32 @@ def main(args):
                     'epoch': epoch,
                     'args': args,
                 }, checkpoint_path)
+                
+        log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
+                     'epoch': epoch,
+                     'n_parameters': n_parameters}
+        
         if epoch % 10 == 0 or epoch > args.epochs - 5:
             test_stats, coco_evaluator, _ = evaluate(
                 model, criterion, postprocessors, data_loader_val, base_ds, device, args.output_dir, fp16=args.fp16
             )
-
-        log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
-                     **{f'test_{k}': v for k, v in test_stats.items()},
-                     'epoch': epoch,
-                     'n_parameters': n_parameters}
-
+            log_test_stats = {**{f'test_{k}': v for k, v in test_stats.items()}}
+            log_stats.update(log_test_stats)
+        
         if args.output_dir and utils.is_main_process():
             with (output_dir / "log.txt").open("a") as f:
                 f.write(json.dumps(log_stats) + "\n")
 
             # for evaluation logs
-            if coco_evaluator is not None:
-                (output_dir / 'eval').mkdir(exist_ok=True)
-                if "bbox" in coco_evaluator.coco_eval:
-                    filenames = ['latest.pth']
-                    if epoch % 50 == 0:
-                        filenames.append(f'{epoch:03}.pth')
-                    for name in filenames:
-                        torch.save(coco_evaluator.coco_eval["bbox"].eval,
-                                   output_dir / "eval" / name)
+#             if coco_evaluator is not None:
+#                 (output_dir / 'eval').mkdir(exist_ok=True)
+#                 if "bbox" in coco_evaluator.coco_eval:
+#                     filenames = ['latest.pth']
+#                     if epoch % 50 == 0:
+#                         filenames.append(f'{epoch:03}.pth')
+#                     for name in filenames:
+#                         torch.save(coco_evaluator.coco_eval["bbox"].eval,
+#                                    output_dir / "eval" / name)
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
