@@ -10,49 +10,15 @@ from collections import defaultdict, deque
 import datetime
 import pickle
 from typing import Optional, List
+from packaging import version
 
 import torch
 import torch.distributed as dist
 from torch import Tensor
-import torchvision
-
-
-def is_torchvision_version_less_than(ref: str, ignore_patch: bool = True) -> bool:
-    """
-    Compare the version number between current and referred one,
-    and check whether current version is less than the 
-    referred version.
-    :param ref: str, format of major.minor if ignore patch else major.minor.patch
-    :param ignore_patch: bool, set whether to compare patch number or not
-    :return: bool
-    """
-    major_a, minor_a, patch_a = list(map(lambda x: int(x), torchvision.__version__.split('.')))
-
-    if ignore_patch:
-        major_b, minor_b = list(map(lambda x: int(x), ref.split('.')))
-    else:
-        major_b, minor_b, patch_b = list(map(lambda x: int(x), ref.split('.')))
-
-    if major_a > major_b:
-        return False
-    elif major_a < major_b:
-        return True
-    else:
-        if minor_a > minor_b:
-            return False
-        elif minor_a < minor_b:
-            return True
-        else:
-            if ignore_patch:
-                return False
-            elif patch_a >= patch_b:
-                return False
-            else:
-                return True
-
 
 # needed due to empty tensor bug in pytorch and torchvision 0.5
-if is_torchvision_version_less_than('0.5'):
+import torchvision
+if version.parse(torchvision.__version__) < version.Version('0.5'):
     import math
     from torchvision.ops.misc import _NewEmptyTensorOp
     def _check_size_scale_factor(dim, size, scale_factor):
@@ -79,8 +45,7 @@ if is_torchvision_version_less_than('0.5'):
         return [
             int(math.floor(input.size(i + 2) * scale_factors[i])) for i in range(dim)
         ]
-
-elif is_torchvision_version_less_than('0.7'):
+elif version.parse(torchvision.__version__) < version.Version('0.7'):
     from torchvision.ops import _new_empty_tensor
     from torchvision.ops.misc import _output_size
 
@@ -513,7 +478,7 @@ def interpolate(input, size=None, scale_factor=None, mode="nearest", align_corne
     This will eventually be supported natively by PyTorch, and this
     class can go away.
     """
-    if float(torchvision.__version__[:3]) < 0.7:
+    if version.parse(torchvision.__version__) < version.Version('0.7'):
         if input.numel() > 0:
             return torch.nn.functional.interpolate(
                 input, size, scale_factor, mode, align_corners
@@ -521,9 +486,12 @@ def interpolate(input, size=None, scale_factor=None, mode="nearest", align_corne
 
         output_shape = _output_size(2, input, size, scale_factor)
         output_shape = list(input.shape[:-2]) + list(output_shape)
-        if float(torchvision.__version__[:3]) < 0.5:
+        if version.parse(torchvision.__version__) < version.Version('0.5'):
             return _NewEmptyTensorOp.apply(input, output_shape)
-        return _new_empty_tensor(input, output_shape)
+        elif version.parse(torchvision.__version__) < version.Version('0.7'):
+            return _new_empty_tensor(input, output_shape)
+        else:
+            return torch.empty(input, output_shape)
     else:
         return torchvision.ops.misc.interpolate(input, size, scale_factor, mode, align_corners)
 
