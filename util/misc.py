@@ -1,7 +1,6 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 """
 Misc functions, including distributed helpers.
-
 Mostly copy-paste from torchvision references.
 """
 import os
@@ -23,7 +22,6 @@ def is_torchvision_version_less_than(ref: str, ignore_patch: bool = True) -> boo
     Compare the version number between current and referred one,
     and check whether current version is less than the 
     referred version.
-
     :param ref: str, format of major.minor if ignore patch else major.minor.patch
     :param ignore_patch: bool, set whether to compare patch number or not
     :return: bool
