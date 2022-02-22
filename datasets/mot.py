@@ -30,22 +30,28 @@ class CocoDetection(TvCocoDetection):
         img_id = self.ids[idx]
         ann_ids = coco.getAnnIds(imgIds=img_id)
         target = coco.loadAnns(ann_ids)
-
-        path = coco.loadImgs(img_id)[0]['file_name']
+        
+#         path = coco.loadImgs(img_id)[0]['file_name']
+        img_info = coco.loadImgs(img_id)[0]
+        path, frame_id, video_id = img_info['file_name'], img_info['frame_id'], img_info['video_id']
 
         img = self.get_image(path)
-        if self.transforms is not None:
-            img, target = self.transforms(img, target)
+#         if self.transforms is not None:
+#             img, target = self.transforms(img, target)
 
-        image_id = self.ids[idx]
-        assert image_id == img_id
-        frame_id = coco.loadImgs(img_id)[0]['frame_id']
-        video_id = coco.loadImgs(img_id)[0]['video_id']
-        target = {'image_id': image_id, 'frame_id': frame_id,
-                  'video_id': video_id, 'annotations': target}
+#         image_id = self.ids[idx]
+#         assert image_id == img_id
+#         frame_id = coco.loadImgs(img_id)[0]['frame_id']
+#         video_id = coco.loadImgs(img_id)[0]['video_id']
+    
+#         target = {'image_id': image_id, 'frame_id': frame_id,
+#                   'video_id': video_id, 'annotations': target}
+        target = {'image_id': img_id, 'frame_id': frame_id, 'video_id': video_id, 'annotations': target}
+    
         img, target = self.prepare(img, target)
         if self._transforms is not None:
             img, target = self._transforms(img, target)
+        
         return img, target
 
 

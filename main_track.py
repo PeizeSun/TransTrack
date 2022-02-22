@@ -20,6 +20,7 @@ from torch.utils.data import DataLoader
 import datasets
 import util.misc as utils
 import datasets.samplers as samplers
+from datasets.sampler_video_distributed import DistributedVideoSampler
 from datasets import build_dataset, get_coco_api_from_dataset
 from engine_track import evaluate, train_one_epoch
 from models import build_tracktrain_model, build_tracktest_model, build_model
@@ -144,6 +145,9 @@ def get_args_parser():
 
     # fp16
     parser.add_argument('--fp16', default=False, action='store_true')
+    
+    # multi-gpu test
+    parser.add_argument('--start_id', default=1, type=int)
     return parser
 
 
@@ -187,7 +191,9 @@ def main(args):
             sampler_val = samplers.NodeDistributedSampler(dataset_val, shuffle=False)
         else:
             sampler_train = samplers.DistributedSampler(dataset_train)
-            sampler_val = samplers.DistributedSampler(dataset_val, shuffle=False)
+#             sampler_val = samplers.DistributedSampler(dataset_val, shuffle=False)
+            sampler_val = DistributedVideoSampler(dataset_val, start_id=args.start_id, shuffle=False)
+
     else:
         sampler_train = torch.utils.data.RandomSampler(dataset_train)
         sampler_val = torch.utils.data.SequentialSampler(dataset_val)
@@ -301,12 +307,20 @@ def main(args):
                 print("Creating video index for {}.".format(args.dataset_file))
                 video_to_images = defaultdict(list)
                 video_names = defaultdict()
-                for _, info in dataset_val.coco.imgs.items():
-                    video_to_images[info["video_id"]].append({"image_id": info["id"],
-                                                              "frame_id": info["frame_id"]})
-                    video_name = info["file_name"].split("/")[0]
-                    if video_name not in video_names:
-                        video_names[info["video_id"]] = video_name
+                
+                coco = dataset_val.coco
+                for i, idx in enumerate(sampler_val.indices[utils.get_rank()]):
+                    img_id = dataset_val.ids[idx]
+                    img_info = coco.loadImgs(img_id)[0]
+                    
+#                 for _, info in dataset_val.coco.imgs.items():
+                    video_id = img_info["video_id"]
+                    video_to_images[video_id].append({"image_id": img_info["id"], "frame_id": img_info["frame_id"]})
+                    video_name = img_info["file_name"].split("/")[0]
+                    if video_id not in video_names:
+                        video_names[video_id] = video_name
+                
+
                 assert len(video_to_images) == len(video_names)
                 # save mot results.
                 save_track(res_tracks, args.output_dir, video_to_images, video_names, args.track_eval_split)

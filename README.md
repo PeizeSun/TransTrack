@@ -9,6 +9,7 @@
 [TransTrack: Multiple Object Tracking with Transformer](https://arxiv.org/abs/2012.15460)
 
 ## Updates
+- (22/02/2022) Multi-GPU testing is supported. 
 - (29/10/2021) Automatic Mixed Precision(AMP) training is supported. 
 - (28/04/2021) Higher performance is reported by training on mixture of CrowdHuman and MOT, instead of first CrowdHuman then MOT. 
 - (28/04/2021) Higher performance is reported by pre-training both detection and tracking on CrowdHuman, instead of only detection. 
