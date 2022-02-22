@@ -309,11 +309,13 @@ def main(args):
                 video_names = defaultdict()
                 
                 coco = dataset_val.coco
-                for i, idx in enumerate(sampler_val.indices[utils.get_rank()]):
+                img_idxs = sampler_val.indices[utils.get_rank()] if args.distributed else list(range(len(dataset_val)))
+                
+#                 for _, img_info in dataset_val.coco.imgs.items():
+                for i, idx in enumerate(img_idxs):
                     img_id = dataset_val.ids[idx]
                     img_info = coco.loadImgs(img_id)[0]
                     
-#                 for _, info in dataset_val.coco.imgs.items():
                     video_id = img_info["video_id"]
                     video_to_images[video_id].append({"image_id": img_info["id"], "frame_id": img_info["frame_id"]})
                     video_name = img_info["file_name"].split("/")[0]
