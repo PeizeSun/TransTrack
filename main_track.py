@@ -148,6 +148,7 @@ def get_args_parser():
     
     # multi-gpu test
     parser.add_argument('--start_id', default=1, type=int)
+    parser.add_argument('--dist_video', default=False, action='store_true')
     return parser
 
 
@@ -191,9 +192,10 @@ def main(args):
             sampler_val = samplers.NodeDistributedSampler(dataset_val, shuffle=False)
         else:
             sampler_train = samplers.DistributedSampler(dataset_train)
-#             sampler_val = samplers.DistributedSampler(dataset_val, shuffle=False)
-            sampler_val = DistributedVideoSampler(dataset_val, start_id=args.start_id, shuffle=False)
-
+            if args.dist_video:
+                sampler_val = DistributedVideoSampler(dataset_val, start_id=args.start_id, shuffle=False)
+            else:
+                sampler_val = samplers.DistributedSampler(dataset_val, shuffle=False)     
     else:
         sampler_train = torch.utils.data.RandomSampler(dataset_train)
         sampler_val = torch.utils.data.SequentialSampler(dataset_val)
