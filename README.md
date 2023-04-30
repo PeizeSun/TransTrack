@@ -29,7 +29,7 @@ Training data | Training time | MOTA% | FP% | FN% | IDs% | download
 [crowdhuman](track_exps/crowdhuman_train.sh)                   |  ~45h       | 56.0 | 11.2 | 32.3 | 0.4 | [560mot17_crowdhuman.pth](https://drive.google.com/drive/folders/1DjPL8xWoXDASrxgsA3O06EspJRdUXFQ-?usp=sharing) 
 [mot17_half](track_exps/mot_trainhalf.sh)                        |  9h        | 61.9 | 3.4  | 34.0   |0.7 |[619mot17_mot17.pth](https://drive.google.com/drive/folders/1DjPL8xWoXDASrxgsA3O06EspJRdUXFQ-?usp=sharing_)
 
-Models are also available in [Baidu Drive](https://pan.baidu.com/s/1dcHuHUZ9y2s7LEmvtVHZZw) by code m4iv.
+If download link is invalid, models and logs are also available in [Github Release](https://github.com/PeizeSun/TransTrack/releases/tag/v0.1) and [Baidu Drive](https://pan.baidu.com/s/1dcHuHUZ9y2s7LEmvtVHZZw) by code m4iv.
 
 #### Notes
 - We observe about 1 MOTA noise.
